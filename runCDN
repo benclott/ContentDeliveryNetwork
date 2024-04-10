@@ -37,7 +37,7 @@ done
 
 shift $((OPTIND -1)) #Rests if extra parameters shouldn't be the case though
 
-echo "Deploying CDN with the following information: PORT: $port, Origin $origin, Name: $name, User: $username"
+echo "Running CDN with the following information: PORT: $port, Origin $origin, Name: $name, User: $username"
 
 #Deploy the dns server
 echo $name
@@ -63,8 +63,8 @@ for server in "${servers[@]}"; do
 
 
     if [ $? -eq 0 ]; then #Check if it worked or not by looking at the  return value of ssh, which is nonzero on failure
-    echo "Deployment successful on server: $server"
+    echo "Run successful on server: $server"
 else
-    echo "Deployment failed on Server: $server" >&2
+    echo "Run failed on Server: $server" >&2
 fi
 done
