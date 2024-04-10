@@ -1,0 +1,65 @@
+#!/bin/bash
+
+#Initialize the values for each input 
+port=""
+origin=""
+name=""
+username=""
+keyfile=""
+
+#Create and parse the command line argumnets <- similar to argparse 
+
+while getopts ":p:o:n:u:i:" opt; do #Each designates a command line argument flag it will read through the next of
+    case ${opt} in #Depending on the opt 
+    p )
+        port=$OPTARG
+        ;;
+    o )
+        origin=$OPTARG
+        ;;
+    n )
+        name=$OPTARG
+        ;;
+    u )
+        username=$OPTARG
+        ;;
+    i )
+        keyfile=$OPTARG
+        ;;
+    \? )
+        echo "Not an option: $OPTARG" 1>&2 #Tell the terminal this option isnt accepted and direct to stdout (2)
+        ;;
+    : )
+        echo "No input found: $OPTARG" 1>&2
+        ;;
+    esac
+done
+
+shift $((OPTIND -1)) #Rests if extra parameters shouldn't be the case though
+
+echo "Deploying CDN with the following information: PORT: $port, Origin $origin, Name: $name, User: $username"
+
+#Deploy the dns server
+#scp -i "$keyfile" "/Users/benjaminclott/Desktop/NeU/Spring2024/Networks/ContentDeliveryNetwork/cdn" "$username@cdn-dns.khoury.northeastern.edu:/home/$username" 
+
+servers=( 
+    'cdn-http3.khoury.northeastern.edu'
+    'cdn-http16.khoury.northeastern.edu'
+    'cdn-http15.khoury.northeastern.edu'
+    'cdn-http7.khoury.northeastern.edu'
+    'cdn-http4.khoury.northeastern.edu'
+    'cdn-http11.khoury.northeastern.edu')
+for server in "${servers[@]}"; do
+    echo "Going through servers"
+    ssh -i "$keyfile"  "$username@$server" "rm httpserver" &> /dev/null
+    ##Ssh and deploy http serverinto eachhttpserver
+    if ! scp_output=$(scp -i "$keyfile"  "/Users/benjaminclott/Desktop/NeU/Spring2024/Networks/ContentDeliveryNetwork/httpserver" "$username@$server:/home/$username" 2>&1); then
+        echo "Deployment failure on scp ... $scp_output"
+        exit 1 #exit the whole thing 
+    fi
+    if ! chmod_output=$(ssh -i "$keyfile" "$username@$server" "chmod +x /home/$username/httpserver" 2>&1); then
+        echo "Deployment failure on chmod ... $chmod_output"
+        exit 1 #exit the whole thing 
+    fi
+
+done
