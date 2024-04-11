@@ -14,108 +14,114 @@ cache = {
     "cdn-http4.khoury.northeastern.edu" : {"ip": "170.187.142.220", "expirationTime": time.time()},
     "cdn-http11.khoury.northeastern.edu" : {"ip": "139.162.82.207", "expirationTime": time.time()},
 }  # Cache with the following format {hostname: {expirationTime, ip}}
-ttl = 300.0  # The time to live for cache entries
 dn = "cdn-http3.khoury.northeastern.edu"
 domain = "cs5700cdn.example.com"
 
-def dns_query(data, ipAddress):
-    # Parse the incoming query
-    query = DNSRecord.parse(data)
-    
-    # Prepare a response based on the query
-    response = query.reply()
-    qtype = query.q.qtype
-    qname = str(query.q.qname)
-    
-    if qtype == QTYPE.A: #Redundant Check 
-        # Create an A record with the desired IP address
-        a_record = RR(qname, QTYPE.A, rdata=A(ipAddress), ttl=300)
+class DnsServer:
+    def __init__(self, port, cdnname):
+        self.port = port
+        self.name = domain
+        self.cache = cache
+        self.ttl = 300 # The time to live for cache entries
+
+    def dns_query(self, data, ipAddress):
+        # Parse the incoming query
+        query = DNSRecord.parse(data)
         
-        # Add the A record to the response
-        response.add_answer(a_record)
-    
-    print(response)
-    return response.pack()
+        # Prepare a response based on the query
+        response = query.reply()
+        qtype = query.q.qtype
+        qname = str(query.q.qname)
+        
+        if qtype == QTYPE.A: #Redundant Check 
+            # Create an A record with the desired IP address
+            a_record = RR(qname, QTYPE.A, rdata=A(ipAddress), ttl=300)
+            
+            # Add the A record to the response
+            response.add_answer(a_record)
+        
+        print(response)
+        return response.pack()
 
 
 
-'''
-Run function => breaks down to call everything else 
-ç
-1. initialize a socket for listening 
-2. bind the socket using specified port range only 
-3. Attempt to get an ip address for the given CDN
-4. Handle all connections coming from that cdn
+    '''
+    Run function => breaks down to call everything else 
+    ç
+    1. initialize a socket for listening 
+    2. bind the socket using specified port range only 
+    3. Attempt to get an ip address for the given CDN
+    4. Handle all connections coming from that cdn
 
-name port -> none
-'''
-def run(name, port):
-    
-    # Initialize the socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind(('0.0.0.0', port)) # Bind the socket to the specified port
-
-    ipAddress = getIp(dn) #Get the ip from the cache or googles DNS
-    update_cache(dn, ipAddress) #Change the time or ip if new 
-
-
-    try: ##See if we can get data 
-        while True:
-            print(F"Waiting for Data...") 
-            data, addr = sock.recvfrom(512) ##Get the data 
-            response = dns_query(data, ipAddress) # Create a dns query 
-            try:
-                sock.sendto(response, addr)
-                print("Response sent successfully.")
-            except Exception as e:
-                print(f"Error sending response: {e}")
-    except KeyboardInterrupt:
-        print("Shutting down the server...")
-    finally:
-        sock.close()
-'''
-Get the ip address given the hostname
-
-1. check if it has expired or isnt there
-2. if it has then throw an error so that we can catch it above
-3. otherwise get the ip address
-
-name -> none
-'''
-
-def getIp(name):
-    print(name)
-    if name in cache: #and cache[name]['expirationTime'] > time.time():
-        return cache[name]['ip']
-    else:
-        print("HERE THO?")
-        #Create a DNS query and send it to google server to get a response, hopefully it knows?
-        request = DNSRecord.question(name, 'A')
-        packet = request.pack() #make it a sendable format
+    name port -> none
+    '''
+    def run(self, name, port):
+        
+        # Initialize the socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.settimeout(5)  #in case it can't find it
-        address = ('8.8.8.8',  53)
-        sock.sendto(packet,address)
+        sock.bind(('0.0.0.0', port)) # Bind the socket to the specified port
 
-        response, _  = sock.recvfrom(512)
-        dnsr = DNSRecord.parse(response)
+        ipAddress = self.getIp(dn) #Get the ip from the cache or googles DNS
+        self.update_cache(dn, ipAddress) #Change the time or ip if new 
 
-        for reply in dnsr.rr:
-            if reply.rtype == QTYPE.A:
-                return  str(reply.rdata)
 
-        raise Exception('Could not resolve IP Address for %s'%name)
-'''
-Update the cache by updating the time and the ip address if it has changed
-this will allow things to be maintained for longer if they are being used 
+        try: ##See if we can get data 
+            while True:
+                print(F"Waiting for Data...") 
+                data, addr = sock.recvfrom(512) ##Get the data 
+                response = self.dns_query(data, ipAddress) # Create a dns query 
+                try:
+                    sock.sendto(response, addr)
+                    print("Response sent successfully.")
+                except Exception as e:
+                    print(f"Error sending response: {e}")
+        except KeyboardInterrupt:
+            print("Shutting down the server...")
+        finally:
+            sock.close()
+    '''
+    Get the ip address given the hostname
 
-1. just reset the values in the hashmap
+    1. check if it has expired or isnt there
+    2. if it has then throw an error so that we can catch it above
+    3. otherwise get the ip address
 
-name ip -> none
-'''
+    name -> none
+    '''
 
-def update_cache(name, ip):
-    cache[name] = {'ip': ip, 'expireTime': time.time() + ttl}
+    def getIp(self, name):
+        print(name)
+        if name in cache: #and cache[name]['expirationTime'] > time.time():
+            return cache[name]['ip']
+        else:
+            print("HERE THO?")
+            #Create a DNS query and send it to google server to get a response, hopefully it knows?
+            request = DNSRecord.question(name, 'A')
+            packet = request.pack() #make it a sendable format
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.settimeout(5)  #in case it can't find it
+            address = ('8.8.8.8',  53)
+            sock.sendto(packet,address)
+
+            response, _  = sock.recvfrom(512)
+            dnsr = DNSRecord.parse(response)
+
+            for reply in dnsr.rr:
+                if reply.rtype == QTYPE.A:
+                    return  str(reply.rdata)
+
+            raise Exception('Could not resolve IP Address for %s'%name)
+    '''
+    Update the cache by updating the time and the ip address if it has changed
+    this will allow things to be maintained for longer if they are being used 
+
+    1. just reset the values in the hashmap
+
+    name ip -> none
+    '''
+
+    def update_cache(self, name, ip):
+        cache[name] = {'ip': ip, 'expireTime': time.time() + ttl}
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Simple DNS Server")
