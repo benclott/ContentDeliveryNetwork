@@ -40,8 +40,7 @@ shift $((OPTIND -1)) #Rests if extra parameters shouldn't be the case though
 echo "Deploying CDN with the following information: PORT: $port, Origin $origin, Name: $name, User: $username"
 
 #Deploy the dns server
-#scp -i "$keyfile" "/Users/benjaminclott/Desktop/NeU/Spring2024/Networks/ContentDeliveryNetwork/cdn" "$username@cdn-dns.khoury.northeastern.edu:/home/$username" 
-
+scp -i "$keyfile" "/Users/benjaminclott/Desktop/NeU/Spring2024/Networks/ContentDeliveryNetwork/dnsserver2.py" "$username@cdn-dns.khoury.northeastern.edu:/home/$username" 
 servers=( 
     'cdn-http3.khoury.northeastern.edu'
     'cdn-http16.khoury.northeastern.edu'

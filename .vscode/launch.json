@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "lldb",
+      "request": "launch",
+      "args": [],
+      "cwd": "/Users/benjaminclott/Desktop/NeU/Spring2024/Networks/ContentDeliveryNetwork",
+      "program": "/Users/benjaminclott/Desktop/NeU/Spring2024/Networks/ContentDeliveryNetwork/build/Debug/outDebug"
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 
 # The DNS server that will handle input of ports and ip addresses
 
-import socket, struct, argparse, time, sys
+import socket, struct, argparse, time, sys, subprocess
 from dnslib import DNSRecord, DNSHeader, DNSQuestion, RR, A, QTYPE
 
 # GLOBAL VARIABLES
@@ -56,11 +56,11 @@ class DnsServer:
     name port -> none
     '''
     def run(self, name, port):
-        print("Starting up!")
+        
         # Initialize the socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.bind(('0.0.0.0', port)) # Bind the socket to the specified port
-
+        print("Gets here")
         ipAddress = self.getIp(dn) #Get the ip from the cache or googles DNS
         self.update_cache(dn, ipAddress) #Change the time or ip if new 
 
@@ -69,7 +69,7 @@ class DnsServer:
             while True:
                 print(F"Waiting for Data...") 
                 data, addr = sock.recvfrom(512) ##Get the data 
-                print(f"Data is {data}")
+                print(f"Data is ... {data}")
                 response = self.dns_query(data, ipAddress) # Create a dns query 
                 try:
                     sock.sendto(response, addr)
@@ -93,10 +93,23 @@ class DnsServer:
     def getIp(self, name):
         print(name)
         if name in cache: #and cache[name]['expirationTime'] > time.time():
-            return cache[name]['ip']
-        else:
             print("HERE THO?")
-            #Create a DNS query and send it to google server to get a response, hopefully it knows?
+
+            all_ip = [entry["ip"] for entry in cache.values()] # list of ips
+            min_latency = float('inf') #set minimum to infinity
+            best_ip = None
+
+            for ip in all_ip: # Go through all ips
+                latency = self.get_latency(ip) 
+                if latency < min_latency:  # if we found the lowest
+                    min_latency = latency
+                    best_ip = ip # set it as the best one so far
+            if best_ip is None:
+                print('idk boss couldnt find an ip')
+            
+            return best_ip
+
+
             request = DNSRecord.question(name, 'A')
             packet = request.pack() #make it a sendable format
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -112,7 +125,28 @@ class DnsServer:
                     return  str(reply.rdata)
 
             raise Exception('Could not resolve IP Address for %s'%name)
-    
+        
+
+    '''
+        Get the latency for a server
+        parse the output of ping to get the latency
+    '''
+    def get_latency(self, ip):
+        try:
+            # Ping the server
+            resp = subprocess.run(['ping', '-c', '4', ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+            if resp.returncode == 0: # on success
+                output = resp.stdout.decode('utf-8') # decode output
+                lines = output.split('\n')
+                for line in lines:
+                    if 'min/avg/max/mdev' in line: # last line of output
+                        pingtime = line.split(' ')[3].split('/')[1]
+                        return float(pingtime)
+        except Exception as e:
+            print(f'Error with latency. IP: {ip} \nError: {e}')
+
+        return float('inf') # on error return infinity so that this ip is not selected
+
     '''
     Update the cache by updating the time and the ip address if it has changed
     this will allow things to be maintained for longer if they are being used 
