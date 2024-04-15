@@ -13,7 +13,6 @@ class Cache:
     def get(self, key):
         cached_item = self.cache.get(key)
         if cached_item:
-            # Increment request count safely here
             content, time_entered, count = cached_item
             self.cache[key] = (content, time_entered, count + 1)
             return gzip.decompress(cached_item).decode('utf-8')
@@ -42,14 +41,15 @@ class HTTPServer:
         
         cached_response = self.cache.get(client_request)
         if cached_response:
+            # Place holders for other items we dont care about
             _, content, _ = cached_response  # Extract content from the cached response tuple
             return 200, content
         else:
             origin_url = f"{self.origin_server}{client_request}"
-            response = requests.get(origin_url)
+            response = requests.get(origin_url) # get content from origin
             if response.status_code == 200:
-                self.cache.set(client_request, response.text)
-                return 200, response.text
+                self.cache.set(client_request, response.text) # add it to the cache
+                return 200, response.text # return it to send to client
             else:
                 return 404, "Not Found"
             
