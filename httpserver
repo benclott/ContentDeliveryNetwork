@@ -4,6 +4,7 @@ import argparse
 import requests
 import socket
 import time
+import gzip
 
 class Cache:
     def __init__(self):
@@ -15,11 +16,12 @@ class Cache:
             # Increment request count safely here
             content, time_entered, count = cached_item
             self.cache[key] = (content, time_entered, count + 1)
-            return cached_item
+            return gzip.decompress(cached_item).decode('utf-8')
         return None
 
     def set(self, key, value):
-        self.cache[key] = (value, time.time(), 1)
+        compressed_value = gzip.compress(value.encode('utf-8'))
+        self.cache[key] = (compressed_value, time.time(), 1)
 
     def delete(self, ttl):
         current_time = time.time()
